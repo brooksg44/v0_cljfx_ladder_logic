@@ -1,0 +1,61 @@
+; This is the Calva REPL Window.
+; It's just a file, really, with some special treatment from Calva.
+; Use it as a REPL input prompt if you like. (When the REPL is connected.)
+; TIPS: The keyboard shortcut `ctrl+alt+o r` shows and focuses this window
+; Please see https://calva.io/repl-window/ for more info.
+; Happy coding! ♥️
+
+; TIPS: As with any Clojure file when the REPL is connected:
+; - `alt+enter` evaluates the current top level form.
+; - `ctrl+enter` evaluates the current form.
+; Special for this file:
+; - `alt+up` and `alt+down` traverse up and down the REPL command history
+;    when the cursor is after the last contents at the prompt
+; 
+; See also the Calva Inspector: https://calva.io/inspector/
+
+PLEASE NOTE
+We will update the default location of this file.
+The new default location will be
+  "<projectRootPath>/.calva/repl.calva-repl"
+For now the legacy path is used by default.
+To give yourself a smooth transition, you can opt in
+to the change, by configuring this setting as false:
+  "calva.useLegacyReplWindowPath"
+and then add "**/.calva/repl.calva-repl" to your ".gitignore" file.
+
+
+This file is configured as the output destination for all REPL output.
+You can configure this with the setting:
+  "calva.outputDestinations"
+
+
+; Jacking in...
+; Connecting using "Leiningen" project type.
+; You can make Calva auto-select this.
+;   - See https://calva.io/connect-sequences/
+; 
+
+; Starting Jack-in: (cd /Users/gregorybrooks/Clojure/v0_cljfx_ladder_logic; lein update-in :dependencies conj '[nrepl,"1.3.1"]' -- update-in :plugins conj '[cider/cider-nrepl,"0.55.4"]' -- update-in '[:repl-options,:nrepl-middleware]' conj '["cider.nrepl/cider-middleware"]' -- repl :headless)
+; Using host:port 127.0.0.1:65252 ...
+; Hooking up nREPL sessions ...
+; Connected session: clj
+; Evaluating code from settings: 'calva.autoEvaluateCode.onConnect.clj'
+nil
+clj꞉v0-cljfx-ladder-logic.core꞉> 
+"Please see https://calva.io/output/#about-stdout-in-the-repl-window
+about why stdout printed to this file is prepended with `;` to be line comments."
+clj꞉v0-cljfx-ladder-logic.core꞉> 
+; Jack-in done.
+clj꞉v0-cljfx-ladder-logic.core꞉> 
+(stop)
+#<Promise@6b4d042a: :not-delivered>
+clj꞉v0-cljfx-ladder-logic.core꞉> 
+(start)
+#<Promise@2fa1fd33: :not-delivered>
+clj꞉v0-cljfx-ladder-logic.core꞉> 
+; Contact clicked: rung1 branch1a x1
+; Updating state...
+; Old state: {:rungs [#v0_cljfx_ladder_logic.core.Rung{:id rung1, :branches [#v0_cljfx_ladder_logic.core.Branch{:id branch1a, :contacts [#v0_cljfx_ladder_logic.core.Contact{:id x1, :type NO, :label X1, :state true} #v0_cljfx_ladder_logic.core.Contact{:id x2, :type NO, :label X2, :state false}]}], :coil #v0_cljfx_ladder_logic.core.Coil{:id y1, :label Y1, :state nil}, :logic X1 AND X2} #v0_cljfx_ladder_logic.core.Rung{:id rung2, :branches [#v0_cljfx_ladder_logic.core.Branch{:id branch2a, :contacts [#v0_cljfx_ladder_logic.core.Contact{:id x2, :type NO, :label X2, :state false}]} #v0_cljfx_ladder_logic.core.Branch{:id branch2b, :contacts [#v0_cljfx_ladder_logic.core.Contact{:id x3, :type NO, :label X3, :state true} #v0_cljfx_ladder_logic.core.Contact{:id x4, :type NC, :label X4, :state false}]}], :coil #v0_cljfx_ladder_logic.core.Coil{:id y1, :label Y1, :state true}, :logic X2 OR (X3 AND NOT X4)} #v0_cljfx_ladder_logic.core.Rung{:id rung3, :branches [#v0_cljfx_ladder_logic.core.Branch{:id branch3a, :contacts [#v0_cljfx_ladder_logic.core.Contact{:id x1, :type NO, :label X1, :state true}]} #v0_cljfx_ladder_logic.core.Branch{:id branch3b, :contacts [#v0_cljfx_ladder_logic.core.Contact{:id x5, :type NC, :label X5, :state true}]} #v0_cljfx_ladder_logic.core.Branch{:id branch3c, :contacts [#v0_cljfx_ladder_logic.core.Contact{:id x6, :type NO, :label X6, :state false} #v0_cljfx_ladder_logic.core.Contact{:id x7, :type NO, :label X7, :state false}]}], :coil #v0_cljfx_ladder_logic.core.Coil{:id y2, :label Y2, :state true}, :logic X1 OR NOT X5 OR (X6 AND X7)}]}
+; New state: {:rungs [#v0_cljfx_ladder_logic.core.Rung{:id rung1, :branches [#v0_cljfx_ladder_logic.core.Branch{:id branch1a, :contacts [#v0_cljfx_ladder_logic.core.Contact{:id x1, :type NO, :label X1, :state false} #v0_cljfx_ladder_logic.core.Contact{:id x2, :type NO, :label X2, :state false}]}], :coil #v0_cljfx_ladder_logic.core.Coil{:id y1, :label Y1, :state nil}, :logic X1 AND X2} #v0_cljfx_ladder_logic.core.Rung{:id rung2, :branches [#v0_cljfx_ladder_logic.core.Branch{:id branch2a, :contacts [#v0_cljfx_ladder_logic.core.Contact{:id x2, :type NO, :label X2, :state false}]} #v0_cljfx_ladder_logic.core.Branch{:id branch2b, :contacts [#v0_cljfx_ladder_logic.core.Contact{:id x3, :type NO, :label X3, :state true} #v0_cljfx_ladder_logic.core.Contact{:id x4, :type NC, :label X4, :state false}]}], :coil #v0_cljfx_ladder_logic.core.Coil{:id y1, :label Y1, :state true}, :logic X2 OR (X3 AND NOT X4)} #v0_cljfx_ladder_logic.core.Rung{:id rung3, :branches [#v0_cljfx_ladder_logic.core.Branch{:id branch3a, :contacts [#v0_cljfx_ladder_logic.core.Contact{:id x1, :type NO, :label X1, :state true}]} #v0_cljfx_ladder_logic.core.Branch{:id branch3b, :contacts [#v0_cljfx_ladder_logic.core.Contact{:id x5, :type NC, :label X5, :state true}]} #v0_cljfx_ladder_logic.core.Branch{:id branch3c, :contacts [#v0_cljfx_ladder_logic.core.Contact{:id x6, :type NO, :label X6, :state false} #v0_cljfx_ladder_logic.core.Contact{:id x7, :type NO, :label X7, :state false}]}], :coil #v0_cljfx_ladder_logic.core.Coil{:id y2, :label Y2, :state true}, :logic X1 OR NOT X5 OR (X6 AND X7)}]}
+; nREPL Connection was closed

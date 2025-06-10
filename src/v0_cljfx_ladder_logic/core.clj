@@ -17,7 +17,7 @@
                               [(->Contact "x1" "NO" "X1" true)
                                (->Contact "x2" "NO" "X2" false)])]
                    (->Coil "y1" "Y1" false)
-                   "X1 AND X2")
+                   "Y1=X1 AND X2")
 
            (->Rung "rung2"
                    [(->Branch "branch2a"
@@ -25,8 +25,8 @@
                     (->Branch "branch2b"
                               [(->Contact "x3" "NO" "X3" true)
                                (->Contact "x4" "NC" "X4" false)])]
-                   (->Coil "y1" "Y1" true)
-                   "X2 OR (X3 AND NOT X4)")
+                   (->Coil "y2" "Y2" true)
+                   "Y2=X2 OR (X3 AND NOT X4)")
 
            (->Rung "rung3"
                    [(->Branch "branch3a"
@@ -36,8 +36,8 @@
                     (->Branch "branch3c"
                               [(->Contact "x6" "NO" "X6" false)
                                (->Contact "x7" "NO" "X7" false)])]
-                   (->Coil "y2" "Y2" true)
-                   "X1 OR NOT X5 OR (X6 AND X7)")]})
+                   (->Coil "y3" "Y3" true)
+                   "Y3=X1 OR NOT X5 OR (X6 AND X7)")]})
 
 ;; State atom
 (def *state (atom initial-state))
@@ -60,8 +60,9 @@
   [rung]
   (some branch-satisfied? (:branches rung)))
 
-(defn evaluate-rung [rung]
+(defn evaluate-rung
   "Evaluate a rung and return updated rung with coil state"
+  [rung]
   (let [coil-state (rung-satisfied? rung)]
     (assoc-in rung [:coil :state] coil-state)))
 

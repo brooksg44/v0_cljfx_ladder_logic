@@ -42,6 +42,129 @@
 ;; State atom
 (def *state (atom initial-state))
 
+;; IEC 61131-3 IL Parser
+(defn parse-il-instruction
+  "Parse a single IL instruction line"
+  [line]
+  (let [trimmed (clojure.string/trim line)
+        tokens (clojure.string/split trimmed #"\s+")]
+    (when (and (not (empty? trimmed))
+               (not (clojure.string/starts-with? trimmed "//"))
+               (not (clojure.string/starts-with? trimmed "(*")))
+      (let [op (first tokens)
+            operand (second tokens)]
+        {:operation op :operand operand :line trimmed}))))
+
+(defn create-contact
+  "Create a Contact record from operand and type"
+  [operand contact-type id-prefix]
+  (->Contact (str id-prefix "_" operand) contact-type operand false))
+
+(defn create-coil
+  "Create a Coil record from operand"
+  [operand id-prefix]
+  (->Coil (str id-prefix "_" operand) operand false))
+
+(defn build-logic-expression
+  "Build a human-readable logic expression from branches"
+  [branches]
+  (let [branch-expressions (map (fn [branch]
+                                  (let [contact-exprs (map (fn [contact]
+                                                             (if (= "NC" (:type contact))
+                                                               (str "NOT " (:label contact))
+                                                               (:label contact)))
+                                                           (:contacts branch))]
+                                    (if (> (count contact-exprs) 1)
+                                      (str "(" (clojure.string/join " AND " contact-exprs) ")")
+                                      (first contact-exprs))))
+                                branches)]
+    (clojure.string/join " OR " branch-expressions)))
+
+(defn parse-il-to-rungs
+  "Parse IEC 61131-3 IL code and convert to ladder logic rungs"
+  [il-lines]
+  (let [instructions (keep parse-il-instruction il-lines)
+        _ (println "Parsed instructions:" (count instructions) instructions)
+
+        ;; Group instructions by ST operations
+        groups (loop [remaining instructions
+                      current-group []
+                      all-groups []]
+                 (if (empty? remaining)
+                   (if (seq current-group) (conj all-groups current-group) all-groups)
+                   (let [inst (first remaining)
+                         rest-insts (rest remaining)]
+                     (if (= "ST" (:operation inst))
+                       (recur rest-insts [] (conj all-groups (conj current-group inst)))
+                       (recur rest-insts (conj current-group inst) all-groups)))))
+
+        _ (println "Instruction groups:" (count groups) groups)
+
+        process-rung-group (fn [rung-idx group]
+                             (println "Processing rung" rung-idx "with group:" group)
+                             (let [store-op (last group)
+                                   contacts-and-ops (butlast group)
+                                   current-branch (atom [])
+                                   branches (atom [])
+
+                                   process-instruction (fn [inst]
+                                                         (case (:operation inst)
+                                                           "LD"  ; Load (start new branch with NO contact)
+                                                           (do
+                                                             (when (seq @current-branch)
+                                                               (swap! branches conj (->Branch (str "branch" rung-idx "_" (count @branches)) @current-branch))
+                                                               (reset! current-branch []))
+                                                             (swap! current-branch conj (create-contact (:operand inst) "NO" (str "rung" rung-idx))))
+
+                                                           "LDN" ; Load NOT (start new branch with NC contact)
+                                                           (do
+                                                             (when (seq @current-branch)
+                                                               (swap! branches conj (->Branch (str "branch" rung-idx "_" (count @branches)) @current-branch))
+                                                               (reset! current-branch []))
+                                                             (swap! current-branch conj (create-contact (:operand inst) "NC" (str "rung" rung-idx))))
+
+                                                           "AND" ; AND with NO contact (add to current branch)
+                                                           (swap! current-branch conj (create-contact (:operand inst) "NO" (str "rung" rung-idx)))
+
+                                                           "ANDN" ; AND NOT with NC contact (add to current branch)
+                                                           (swap! current-branch conj (create-contact (:operand inst) "NC" (str "rung" rung-idx)))
+
+                                                           "OR"  ; OR with NO contact (start new branch)
+                                                           (do
+                                                             (when (seq @current-branch)
+                                                               (swap! branches conj (->Branch (str "branch" rung-idx "_" (count @branches)) @current-branch))
+                                                               (reset! current-branch []))
+                                                             (swap! current-branch conj (create-contact (:operand inst) "NO" (str "rung" rung-idx))))
+
+                                                           "ORN" ; OR NOT with NC contact (start new branch)
+                                                           (do
+                                                             (when (seq @current-branch)
+                                                               (swap! branches conj (->Branch (str "branch" rung-idx "_" (count @branches)) @current-branch))
+                                                               (reset! current-branch []))
+                                                             (swap! current-branch conj (create-contact (:operand inst) "NC" (str "rung" rung-idx))))
+
+                                                           nil)) ; ignore other operations for now
+                                   ]
+
+                              ; Process all contact/logic instructions
+                               (doseq [inst contacts-and-ops]
+                                 (process-instruction inst))
+
+                              ; Add final branch if it has contacts
+                               (when (seq @current-branch)
+                                 (swap! branches conj (->Branch (str "branch" rung-idx "_" (count @branches)) @current-branch)))
+
+                              ; Create the rung with coil from ST operation
+                               (when (and (= "ST" (:operation store-op)) (seq @branches))
+                                 (let [coil (create-coil (:operand store-op) (str "rung" rung-idx))
+                                       logic-expr (build-logic-expression @branches)]
+                                   (->Rung (str "rung" rung-idx) @branches coil logic-expr)))))
+
+        ; Process each group to create rungs
+        rung-data (keep-indexed process-rung-group groups)]
+    (println "Final rung data:" rung-data)
+    rung-data))
+
 ;; Logic evaluation functions
 (defn contact-satisfied?
   "Check if a contact is satisfied based on its type and state"
@@ -65,6 +188,28 @@
   [rung]
   (let [coil-state (rung-satisfied? rung)]
     (assoc-in rung [:coil :state] coil-state)))
+
+(defn load-il-file
+  "Load and parse an IEC 61131-3 IL file, returning ladder logic rungs"
+  [file-path]
+  (try
+    (let [file-content (slurp file-path)
+          lines (clojure.string/split-lines file-content)
+          rungs (parse-il-to-rungs lines)
+          evaluated-rungs (mapv evaluate-rung rungs)]
+      {:rungs evaluated-rungs})
+    (catch Exception e
+      (println "Error loading IL file:" (.getMessage e))
+      {:rungs []})))
+
+(defn update-state-from-il-file!
+  "Load IL file and update the application state"
+  [file-path]
+  (let [parsed-data (load-il-file file-path)]
+    (when (seq (:rungs parsed-data))
+      (reset! *state parsed-data)
+      (println "Loaded" (count (:rungs parsed-data)) "rungs from" file-path))
+    parsed-data))
 
 ;; Helper functions
 (defn find-contact-path
@@ -280,6 +425,7 @@
    :title "Ladder Logic Viewer - cljfx"
    :width 1000
    :height 700
+   :on-close-request {:event/type :window-close-requested}
    :scene {:fx/type :scene
            :root {:fx/type :scroll-pane
                   :fit-to-width true
@@ -313,6 +459,11 @@
 (defmethod handle :contact-clicked [{:keys [rung-id branch-id contact-id]}]
   (handle-contact-click rung-id branch-id contact-id))
 
+(defmethod handle :window-close-requested [_]
+  (println "Window close requested, shutting down...")
+  (javafx.application.Platform/exit)
+  (System/exit 0))
+
 ;; Renderer with event handling
 (def renderer
   (fx/create-renderer
@@ -324,7 +475,14 @@
 ;; Application lifecycle
 (defn -main [& args]
   (fx/mount-renderer *state renderer)
-  (println "Ladder Logic Viewer started!"))
+  (println "Ladder Logic Viewer started!")
+  ;; Add shutdown hook to properly close JavaFX
+  (.addShutdownHook (Runtime/getRuntime)
+                    (Thread. #(do
+                                (println "Shutting down...")
+                                (fx/unmount-renderer *state renderer)
+                                (javafx.application.Platform/exit)))))
+
 
 ;; For development
 (defn start []
@@ -333,8 +491,22 @@
 (defn stop []
   (fx/unmount-renderer *state renderer))
 
+;; Test function to load IL file
+(defn test-load-il []
+  "Test function to load the sample IL file"
+  (let [file-path "sample.il"]
+    (println "Loading IL file:" file-path)
+    (update-state-from-il-file! file-path)
+    (println "Loaded rungs:" (count (:rungs @*state)))))
+
 ;; Initialize with evaluated rungs
 (swap! *state update :rungs #(mapv evaluate-rung %))
 
 ;; Start the application
 (-main)
+
+(comment
+  ;; Test functions - uncomment to use
+  (update-state-from-il-file! "sample.il")
+  ;;=> {:rungs []}
+  (test-load-il))

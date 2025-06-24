@@ -409,7 +409,7 @@
                            :grid-pane/row 0
                            :style {:-fx-font-size 12}}
                           {:fx/type :label
-                           :text "• Green = Contact is active/closed"
+                           :text "• Green = Contact is active: XIC:CLOSED, XIO: OPEN"
                            :grid-pane/column 0
                            :grid-pane/row 1
                            :style {:-fx-font-size 12}}
@@ -418,6 +418,50 @@
                            :grid-pane/column 1
                            :grid-pane/row 1
                            :style {:-fx-font-size 12}}]}]})
+
+(defn contact-status-view [{:keys [rungs]}]
+  (let [all-contacts (for [rung rungs
+                           branch (:branches rung)
+                           contact (:contacts branch)]
+                       contact)
+        unique-contacts (vals (group-by :label all-contacts))]
+    {:fx/type :v-box
+     :spacing 8
+     :padding (Insets. 16)
+     :style {:-fx-background-color "#f0fdf4"
+             :-fx-background-radius 8}
+     :children (concat
+                [{:fx/type :label
+                  :text "Contact Status:"
+                  :style {:-fx-font-weight "bold"
+                          :-fx-font-size 14}}]
+                (map (fn [contact-group]
+                       (let [contact (first contact-group)
+                             state-text (if (:state contact) "CLOSED" "OPEN")
+                             type-text (case (:type contact)
+                                         "NO" "Normally Open"
+                                         "NC" "Normally Closed"
+                                         "Unknown")
+                             status-color (if (:state contact) "#10b981" "#6b7280")]
+                         {:fx/type :h-box
+                          :alignment :center-left
+                          :spacing 8
+                          :children [{:fx/type :label
+                                      :text (:label contact)
+                                      :style {:-fx-font-weight "bold"
+                                              :-fx-font-size 12
+                                              :-fx-min-width 40}}
+                                     {:fx/type :label
+                                      :text (str "(" type-text ")")
+                                      :style {:-fx-font-size 10
+                                              :-fx-text-fill "#6b7280"
+                                              :-fx-min-width 120}}
+                                     {:fx/type :label
+                                      :text state-text
+                                      :style {:-fx-font-size 12
+                                              :-fx-text-fill status-color
+                                              :-fx-font-weight "bold"}}]}))
+                     unique-contacts))}))
 
 (defn root-view [{:keys [rungs]}]
   {:fx/type :stage
@@ -451,7 +495,9 @@
                                            :index idx})
                                         rungs)
 
-                                       [{:fx/type legend-view}])}}}})
+                                       [{:fx/type legend-view}
+                                        {:fx/type contact-status-view
+                                         :rungs rungs}])}}}})
 
 ;; Event handling
 (defmulti handle :event/type)

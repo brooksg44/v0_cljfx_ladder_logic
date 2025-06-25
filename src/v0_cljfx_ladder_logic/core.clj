@@ -1,5 +1,7 @@
 (ns v0-cljfx-ladder-logic.core
-  (:require [cljfx.api :as fx])
+  (:require [cljfx.api :as fx]
+            [clojure.string :as clojure.string])
+  (:gen-class)
   (:import [javafx.scene.input MouseEvent]
            [javafx.scene.paint Color]
            [javafx.geometry Pos Insets]))
@@ -245,13 +247,13 @@
   (println "New state:" @*state))
 
 ;; Color definitions
-(def colors
-  {:contact-active {:fill Color/LIGHTGREEN :stroke Color/GREEN}
-   :contact-inactive {:fill Color/LIGHTGRAY :stroke Color/GRAY}
-   :coil-energized {:fill Color/LIGHTCORAL :stroke Color/RED}
-   :coil-de-energized {:fill Color/LIGHTGRAY :stroke Color/GRAY}
-   :power-rail Color/BLACK
-   :connection-line Color/BLACK})
+;; (def colors
+;;   {:contact-active {:fill Color/LIGHTGREEN :stroke Color/GREEN}
+;;    :contact-inactive {:fill Color/LIGHTGRAY :stroke Color/GRAY}
+;;    :coil-energized {:fill Color/LIGHTCORAL :stroke Color/RED}
+;;    :coil-de-energized {:fill Color/LIGHTGRAY :stroke Color/GRAY}
+;;    :power-rail Color/BLACK
+;;    :connection-line Color/BLACK})
 
 ;; Color definitions - using proper JavaFX color strings
 (def colors
@@ -538,8 +540,9 @@
   (fx/unmount-renderer *state renderer))
 
 ;; Test function to load IL file
-(defn test-load-il []
+(defn test-load-il
   "Test function to load the sample IL file"
+  []
   (let [file-path "sample.il"]
     (println "Loading IL file:" file-path)
     (update-state-from-il-file! file-path)

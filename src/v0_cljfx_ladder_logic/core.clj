@@ -8,36 +8,44 @@
 
 ;; Data structures
 (defrecord Contact [id type label state])
-(defrecord Branch [id contacts])
+(defrecord Branch [id contact-ids])
 (defrecord Coil [id label state])
 (defrecord Rung [id branches coil logic])
 
 ;; Initial state
 (def initial-state
-  {:rungs [(->Rung "rung1"
+  {:contacts {"x1" (->Contact "x1" "NO" "X1" true)
+              "x2" (->Contact "x2" "NO" "X2" false)
+              "x3" (->Contact "x3" "NO" "X3" true)
+              "x4" (->Contact "x4" "NC" "X4" false)
+              "x5" (->Contact "x5" "NC" "X5" true)
+              "x6" (->Contact "x6" "NO" "X6" false)
+              "x7" (->Contact "x7" "NO" "X7" false)}
+
+   :rungs [(->Rung "rung1"
                    [(->Branch "branch1a"
-                              [(->Contact "x1" "NO" "X1" true)
-                               (->Contact "x2" "NO" "X2" false)])]
+                              ["x1"
+                               "x2"])]
                    (->Coil "y1" "Y1" false)
                    "Y1=X1 AND X2")
 
            (->Rung "rung2"
                    [(->Branch "branch2a"
-                              [(->Contact "x2" "NO" "X2" false)])
+                              ["x2"])
                     (->Branch "branch2b"
-                              [(->Contact "x3" "NO" "X3" true)
-                               (->Contact "x4" "NC" "X4" false)])]
+                              ["x3"
+                               "x4"])]
                    (->Coil "y2" "Y2" true)
                    "Y2=X2 OR (X3 AND NOT X4)")
 
            (->Rung "rung3"
                    [(->Branch "branch3a"
-                              [(->Contact "x1" "NO" "X1" true)])
+                              ["x1"])
                     (->Branch "branch3b"
-                              [(->Contact "x5" "NC" "X5" true)])
+                              ["x5"])
                     (->Branch "branch3c"
-                              [(->Contact "x6" "NO" "X6" false)
-                               (->Contact "x7" "NO" "X7" false)])]
+                              ["x6"
+                               "x7"])]
                    (->Coil "y3" "Y3" true)
                    "Y3=X1 OR NOT X5 OR (X6 AND X7)")]})
 
@@ -178,7 +186,13 @@
 (defn branch-satisfied?
   "Check if all contacts in a branch are satisfied (AND logic)"
   [branch]
-  (every? contact-satisfied? (:contacts branch)))
+  (->>  branch
+        :contact-ids
+        
+        
+        (map #(get (:contacts @*state) %))
+        (every? contact-satisfied?)))
+
 
 (defn rung-satisfied?
   "Check if any branch in a rung is satisfied (OR logic)"
@@ -243,7 +257,12 @@
   (println "Updating state...")
   (println "Old state:" @*state)
 
-  (swap! *state update :rungs toggle-contact rung-id branch-id contact-id)
+  #_(swap! *state update :rungs toggle-contact rung-id branch-id contact-id)
+  (swap! *state update-in [:contacts contact-id :state] not)
+  (swap! *state update :rungs
+         (fn [rungs]
+           (mapv evaluate-rung
+                 rungs)))
   (println "New state:" @*state))
 
 ;; Color definitions
@@ -265,8 +284,10 @@
    :connection-line "#000000"})
 
 ;; Component functions
-(defn contact-view [{:keys [contact rung-id branch-id]}]
-  (let [active? (contact-satisfied? contact)
+(defn contact-view [{:keys [contact-id rung-id branch-id contacts]}]
+  (let [
+        contact (get contacts contact-id)
+        active? (contact-satisfied? contact)
         colors (if active? (:contact-active colors) (:contact-inactive colors))]
     {:fx/type :stack-pane
      :alignment :center
@@ -315,7 +336,7 @@
    :height height
    :fill (:power-rail colors)})
 
-(defn branch-view [{:keys [branch rung-id is-first? is-last?]}]
+(defn branch-view [{:keys [branch rung-id is-first? is-last? contacts]}]
   {:fx/type :h-box
    :alignment :center-left
    :spacing 4
@@ -326,7 +347,7 @@
 
               ;; Contacts in series
               (map-indexed
-               (fn [idx contact]
+               (fn [idx contact-id]
                  {:fx/type :h-box
                   :alignment :center
                   :spacing 2
@@ -334,15 +355,16 @@
                              (when (> idx 0)
                                [{:fx/type connection-line-view :width 15 :height 2}])
                              [{:fx/type contact-view
-                               :contact contact
+                               :contacts contacts
+                               :contact-id contact-id
                                :rung-id rung-id
                                :branch-id (:id branch)}])})
-               (:contacts branch))
+               (:contact-ids branch))
 
               (when-not is-last?
                 [{:fx/type :label :text "┴" :style {:-fx-font-size 8}}]))})
 
-(defn rung-view [{:keys [rung index]}]
+(defn rung-view [{:keys [rung index contacts]}]
   {:fx/type :v-box
    :spacing 8
    :padding (Insets. 10)
@@ -376,6 +398,7 @@
                            :children (map-indexed
                                       (fn [idx branch]
                                         {:fx/type branch-view
+                                         :contacts contacts
                                          :branch branch
                                          :rung-id (:id rung)
                                          :is-first? (= idx 0)
@@ -421,12 +444,8 @@
                            :grid-pane/row 1
                            :style {:-fx-font-size 12}}]}]})
 
-(defn contact-status-view [{:keys [rungs]}]
-  (let [all-contacts (for [rung rungs
-                           branch (:branches rung)
-                           contact (:contacts branch)]
-                       contact)
-        unique-contacts (vals (group-by :label all-contacts))]
+(defn contact-status-view [{:keys [contacts rungs]}]
+  (let [unique-contacts (vals contacts)]
     {:fx/type :v-box
      :spacing 8
      :padding (Insets. 16)
@@ -437,9 +456,8 @@
                   :text "Contact Status:"
                   :style {:-fx-font-weight "bold"
                           :-fx-font-size 14}}]
-                (map (fn [contact-group]
-                       (let [contact (first contact-group)
-                             state-text (if (:state contact) "CLOSED" "OPEN")
+                (map (fn [contact]
+                       (let [state-text (if (:state contact) "CLOSED" "OPEN")
                              type-text (case (:type contact)
                                          "NO" "Normally Open"
                                          "NC" "Normally Closed"
@@ -465,7 +483,7 @@
                                               :-fx-font-weight "bold"}}]}))
                      unique-contacts))}))
 
-(defn root-view [{:keys [rungs]}]
+(defn root-view [{:keys [contacts rungs]}]
   {:fx/type :stage
    :showing true
    :title "Ladder Logic Viewer - cljfx"
@@ -493,13 +511,14 @@
                                        (map-indexed
                                         (fn [idx rung]
                                           {:fx/type rung-view
+                                           :contacts contacts
                                            :rung rung
                                            :index idx})
                                         rungs)
 
                                        [{:fx/type legend-view}
                                         {:fx/type contact-status-view
-                                         :rungs rungs}])}}}})
+                                         :contacts contacts}])}}}})
 
 ;; Event handling
 (defmulti handle :event/type)
@@ -517,6 +536,7 @@
   (fx/create-renderer
    :middleware (fx/wrap-map-desc (fn [state]
                                    {:fx/type root-view
+                                    :contacts (:contacts state)
                                     :rungs (:rungs state)}))
    :opts {:fx.opt/map-event-handler handle}))
 
